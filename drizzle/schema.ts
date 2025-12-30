@@ -1,4 +1,5 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, longtext } from "drizzle-orm/mysql-core";
+import { relations } from "drizzle-orm";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +26,87 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// Blog Categories
+export const categories = mysqlTable("categories", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;
+
+// Blog Tags
+export const tags = mysqlTable("tags", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Tag = typeof tags.$inferSelect;
+export type InsertTag = typeof tags.$inferInsert;
+
+// Blog Articles
+export const articles = mysqlTable("articles", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  summary: text("summary"),
+  content: longtext("content").notNull(),
+  coverImage: varchar("coverImage", { length: 500 }),
+  categoryId: int("categoryId").notNull(),
+  authorId: int("authorId").notNull(),
+  status: mysqlEnum("status", ["draft", "published"]).default("draft").notNull(),
+  viewCount: int("viewCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  publishedAt: timestamp("publishedAt"),
+});
+
+export type Article = typeof articles.$inferSelect;
+export type InsertArticle = typeof articles.$inferInsert;
+
+// Article-Tag Association
+export const articleTags = mysqlTable("article_tags", {
+  articleId: int("articleId").notNull(),
+  tagId: int("tagId").notNull(),
+});
+
+export type ArticleTag = typeof articleTags.$inferSelect;
+export type InsertArticleTag = typeof articleTags.$inferInsert;
+
+// Relations
+export const articlesRelations = relations(articles, ({ one, many }) => ({
+  author: one(users, {
+    fields: [articles.authorId],
+    references: [users.id],
+  }),
+  category: one(categories, {
+    fields: [articles.categoryId],
+    references: [categories.id],
+  }),
+  tags: many(articleTags),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  articles: many(articles),
+}));
+
+export const tagsRelations = relations(tags, ({ many }) => ({
+  articles: many(articleTags),
+}));
+
+export const articleTagsRelations = relations(articleTags, ({ one }) => ({
+  article: one(articles, {
+    fields: [articleTags.articleId],
+    references: [articles.id],
+  }),
+  tag: one(tags, {
+    fields: [articleTags.tagId],
+    references: [tags.id],
+  }),
+}));
